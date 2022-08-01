@@ -119,7 +119,7 @@ Temp_fit(16, 23, 27, 31, 35, sta, 'Atlantic', 'Ocyurus')
 # Pacific Projection ------------------------------------------------------
 # -------------------------------------------------------------------------
 
-sta      <- list.files('Environmental_layers/Pacific/', pattern = '.asc', full.names = TRUE)
+sta      <- list.files('Environmental_layers/Pacific/', full.names = TRUE)
 sta      <- stack(sta)
 
 
