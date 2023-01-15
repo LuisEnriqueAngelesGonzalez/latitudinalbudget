@@ -1,140 +1,145 @@
 # -------------------------------------------------------------------------
-# Function ----------------------------------------------------------------
+# Model projections -------------------------------------------------------
 # -------------------------------------------------------------------------
 
-# Install and load libraries
+# Load libraries ----------------------------------------------------------
 
 if (!require(mgcv)) install.packages("mgcv") 
 if (!require(raster)) install.packages("raster")
-
-# Load function to obtain results
-
-Temp_fit <- function(pejus_min, optimum_min, mean, optimum_max, 
-                     pejus_max, stack, folder_name, species, ...){
-  
-  # Create folder if it doesn't exist
-  
-  options(warn = -1)
-  newdir <- paste0(folder_name)
-  if (!dir.exists(newdir)) {dir.create(newdir)}  
-  
-  # GAM analysis
-  
-  dat <- data.frame(x = c(pejus_min, optimum_min, mean, optimum_max, pejus_max), y=c(0, 0.75, 1 ,0.75, 0))
-  plot.new() # Mandatory
-  res <- xspline(dat$x, dat$y, -0.5, draw=FALSE)
-  tem <- res$x
-  fit <- res$y
-  phy <- data.frame(cbind(tem, fit))
-  gam_fit <- gam(fit ~ s(tem, k = 70),
-                 data = phy, method = "REML", family = "gaussian")
-  
-  # Projection
-  
-  for(i in 1:length(names(stack))){
-    
-    # Suitability maps
-    
-    f   <- paste0(names(stack[[i]]), '.tif')
-    ras <- stack[[i]] 
-    names(ras)   <- 'tem'
-    pre   <- predict(ras, gam_fit, family = gaussian, type ="response", scale=TRUE)
-    pre[pre < 0] <- 0
-    pre[pre > 1] <- 1
-    
-    # pre <- pre/pre@data@max #relativize values
-    
-    writeRaster(pre, filename = paste0(newdir,'/', species, '_', f), overwrite=TRUE) 
-    
-    # Binary maps (pejus) 
-    
-    pejus   <- reclassify(pre, cbind(0.0000000000000000000000000000000000000000000000000000000001, 0.7499999999999999999999999999999999999999999999999999999999999999, 1))
-    pejus[pejus != 1] <- 0
-    writeRaster(pejus, filename = paste0(newdir,'/',species, '_', 'bin_pej_',  f), overwrite=TRUE) 
-    
-    # Optimum maps (optimum) 
-    
-    o_cha   <- cbind(from = c(0, 0.75), 
-                     to = c(0.75, 1),
-                     becomes = c(0, 1))
-    
-    optim   <- reclassify(pre, o_cha)
-    writeRaster(optim, filename = paste0(newdir,'/', species,'_', 'bin_opt_', f), overwrite=TRUE) 
-    
-  }
-  options(warn=0)
-}
+if (!require(sf)) install.packages("sf")
+source('Script/0_functions.R')
 
 
-# Function fit the model in a specifed stack raster
-# the inputs are the pejus temperatures and the 
-# optimumum tempeatures.
-# The stack in the following example is "sta" is the stack.
-# The function creates a folder where results are saved
-# "Atlantic" and "Pacific". The species name
-# is used to save the projections with the species
-# name
+# Read environmental layers -----------------------------------------------
+
+sta_atl      <- stack(list.files('Environmental_layers/Atlantic/', pattern = '', full.names = TRUE))
+sta_pac      <- stack(list.files('Environmental_layers/Pacific/', pattern = '', full.names = TRUE))
+
+
+# Read rasters and shapefiles for continental projections -----------------
+
+con      <- list.files('Environmental_layers/Americas/', full.names = TRUE)[1]
+Atl      <- list.files('Shapefiles/', pattern = 'Atlantic_ocean.shp', full.names = TRUE)[1]
+Pac      <- list.files('Shapefiles/', pattern = 'Pacific_ocean.shp', full.names = TRUE)[1]
 
 # -------------------------------------------------------------------------
-# Atlantic Projection -----------------------------------------------------
-# ------------------------------------------------------------------------
-
-
-sta      <- list.files('Environmental_layers/Atlantic/', pattern = '', full.names = TRUE)
-sta      <- stack(sta)
-
-# Callinectes similis
-
-Temp_fit(16, 21, 22.5, 24, 32, sta, 'Atlantic', 'Callinectes')
-
-# Libinia dubia
-
-Temp_fit(15, 22, 24, 26, 34, sta, 'Atlantic', 'Libinia')
-
-# Panulirus argus
-
-Temp_fit(14, 22, 25, 28, 32, sta, 'Atlantic', 'Panulirus')
-
-# Melongena Corona Bispinosa
-
-Temp_fit(7, 19, 24, 29, 42, sta, 'Atlantic', 'Melongena')
-
-# Octopus maya
-
-Temp_fit(17, 19, 23, 27, 30, sta, 'Atlantic', 'Octopus')
-
-# Strombus pugilis 
-
-Temp_fit(14, 18, 24.5, 31, 34, sta, 'Atlantic', 'Strombus')
-
-# Centropomus undecimalis
-
-Temp_fit(18, 26, 29, 32, 38, sta, 'Atlantic', 'Centropomus')
-
-# Ocyurus chrysurus
-
-Temp_fit(16, 23, 27, 31, 35, sta, 'Atlantic', 'Ocyurus')
-
-# -------------------------------------------------------------------------
-# Pacific Projection ------------------------------------------------------
+# Run function to obtain fitness maps -------------------------------------
 # -------------------------------------------------------------------------
 
-sta      <- list.files('Environmental_layers/Pacific/', full.names = TRUE)
-sta      <- stack(sta)
+# Atlantic species --------------------------------------------------------
+
+# Callinectes similis -----------------------------------------------------
+
+Temp_fit(lower_pejus = 14,  
+         optimum_min = 19, mean = 23.5, optimum_max = 28, 
+         upper_pejus = 39, stack = sta_atl, continent = con, 
+         shape = Atl, 'Atlantic', 'Callinectes')
+
+# Libinia dubia -----------------------------------------------------------
+
+Temp_fit(lower_pejus = 17,  
+         optimum_min = 19, mean = 26, optimum_max = 28, 
+         upper_pejus = 34,  stack = sta_atl, continent = con, 
+         shape = Atl, 'Atlantic', 'Libinia')
+
+# Panulirus argus ---------------------------------------------------------
+
+Temp_fit(lower_pejus = 15,  
+         optimum_min = 22, mean = 25, optimum_max = 28, 
+         upper_pejus = 30, stack = sta_atl, continent = con, 
+         shape = Atl, 'Atlantic', 'Panulirus')
+
+# Melongena corona --------------------------------------------------------
+
+Temp_fit(lower_pejus = 14,  
+         optimum_min = 18, mean = 23.5, optimum_max = 31, 
+         upper_pejus = 37, stack = sta_atl, continent = con, 
+         shape = Atl, 'Atlantic', 'Melongena')
 
 
-# Kelletia Kellettii
+# Strombus pugilis --------------------------------------------------------
 
-Temp_fit(12, 13, 18.5, 24, 29, sta, 'Pacific', 'Kelletia')
+Temp_fit(lower_pejus = 16,  
+         optimum_min = 19, mean = 23, optimum_max = 27, 
+         upper_pejus = 33, stack = sta_atl, continent = con, 
+         shape = Atl, 'Atlantic', 'Strombus')
 
-# Lutjanus gutattus
+# Centropomus -------------------------------------------------------------
 
-Temp_fit(20, 24, 27, 30, 36, sta, 'Pacific', 'Lutjanus')
+# 28 
 
-# Seriola	lalandi
+Temp_fit(lower_pejus = 14,  
+         optimum_min = 27, mean = 28.5, optimum_max = 30, 
+         upper_pejus = 35, stack = sta_atl, continent = con, 
+         shape = Atl, 'Atlantic', 'Centropomus')
 
-Temp_fit(17, 24, 25.5, 27, 34, sta, 'Pacific', 'Seriola')
+# Ocyurus -----------------------------------------------------------------
 
+# 26
+
+Temp_fit(lower_pejus = 16,  
+         optimum_min = 24, mean = 26.4, optimum_max = 29, 
+         upper_pejus = 34, stack = sta_atl, continent = con, 
+         shape = Atl, 'Atlantic', 'Ocyurus')
+
+# Octopus -----------------------------------------------------------------
+
+Temp_fit(lower_pejus = NULL, 
+         optimum_min = 23, mean = 23.4, optimum_max = 26, 
+         upper_pejus = 30, stack = sta_atl, continent = con, 
+         folder_name = 'Atlantic', species =  'Octopus')
+
+
+# Pacific species ---------------------------------------------------------
+
+# Kelletia ----------------------------------------------------------------
+
+Temp_fit(lower_pejus = 12, 
+         optimum_min = 13, mean = 13.4, optimum_max = 19, 
+         upper_pejus = 29, stack = sta_pac, continent = con, 
+         shape = Pac, folder_name = 'Pacific', species =  'Kelletia')
+
+# Lutjanus ----------------------------------------------------------------
+
+Temp_fit(lower_pejus = 20, 
+         optimum_min = 24, mean = 26, optimum_max = 28, 
+         upper_pejus = 34, stack = sta_pac, continent = con, 
+         shape = Pac, folder_name = 'Pacific', species =  'Lutjanus')
+
+# Seriola ----------------------------------------------------------------
+
+Temp_fit(lower_pejus = 18, 
+         optimum_min = 22, mean = 26, optimum_max = 28, 
+         upper_pejus = 33, stack = sta_pac, continent = con, 
+         shape = NULL, folder_name = 'Pacific', species =  'Seriola')
+
+
+# -------------------------------------------------------------------------
+# Binary plot -------------------------------------------------------------
+# -------------------------------------------------------------------------
+
+# Load libraries ----------------------------------------------------------
+
+if (!require(raster)) install.packages("raster")
+source('Script/0_functions.R')
+
+# Load list of rasters (performance maps) ---------------------------------
+
+Atl <- list.files('Atlantic', full.names = TRUE)
+Atl <- Atl[lapply(Atl,function(x) length(grep("Continent",x,value=FALSE))) == 0]
+
+Pac <- list.files('Pacific', full.names = TRUE)
+Pac <- Pac[lapply(Pac,function(x) length(grep("Continent",x,value=FALSE))) == 0]
+
+
+# Atlantic ----------------------------------------------------------------
+
+Bin(Suit_lis = Atl, folder_name = 'Atlantic')
+
+
+# Pacific -----------------------------------------------------------------
+
+Bin(Suit_lis = Pac, folder_name = 'Pacific')
 
 
 
